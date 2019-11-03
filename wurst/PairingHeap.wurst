@@ -1,0 +1,185 @@
+package PairingHeap
+import LinkedList
+
+/**
+ * A pairing heap is a type of heap data structure with relatively simple implementation
+ * and excellent practical amortized performance.
+ */
+public class PairingHeap<K, V>
+    Node<K, V> root = null
+    Comparator<K> comparator
+    var size = 0
+
+    construct(Comparator<K> comparator)
+        this.comparator = comparator
+
+    construct(K key, V value, Comparator<K> comparator)
+        this.root = new Node<K,V>(key, value)
+        this.size++
+        this.comparator = comparator
+
+    /** Adds the given key-value pair to this heap */
+    function add(K k, V v) returns int
+        let n = new Node(k, v)
+        root = fmerge(root, n, comparator)
+        size++
+        return n castTo int
+
+    function modifyKey(int pos, K key)
+        fmodifyKey(this, pos castTo Node<K,V>, key)
+
+    /** Returns whether this heap has any nodes */
+    function isEmpty() returns boolean
+        return root == null
+
+    /** Returns the value of the minimal key  */
+    function min() returns V
+        return root.value
+
+    /** Deletes the minimal node and returns its value */
+    function deleteMin() returns V
+        size--
+        return fdeleteMin(this, comparator)
+
+    /** Merges this heap with another */
+    function merge(PairingHeap<K,V> other)
+        this.root = fmerge(this.root, other.root, comparator)
+        destroy other
+
+class Node<K, V>
+    K key
+    V value
+    Node<K, V> parent = null
+    Node<K, V> next = null
+    Node<K, V> child = null
+
+    construct (K key, V value)
+        this.key = key
+        this.value = value
+
+function fmodifyKey<K,V>(PairingHeap<K,V> h, Node<K,V> n, K k)
+    var _tmp = n.parent
+    let v = n.value
+    if n != h.root
+        _tmp = n.parent
+        _tmp.child = fmergepairs(n.child, h.comparator)
+        _tmp.child.parent = _tmp
+
+        n.key = k
+        n.parent = null
+        n.next = null
+        n.child = null
+
+        h.root = fmerge(h.root, n, h.comparator)
+    else
+        fdeleteMin(h, h.comparator)
+        h.add(k, v)
+
+function fmerge<K, V>(Node<K, V> a, Node<K, V> b, Comparator<K> comparator) returns Node<K, V>
+    if a == null
+        return b
+    else if b == null
+        return a
+    else if comparator.compare(a.key, b.key) >= 0
+        a.next = b.child
+        b.child = a
+        a.parent = b
+        return b
+    else
+        b.next = a.child
+        a.child = b
+        b.parent = a
+        return a
+
+function fmergepairs<K, V>(Node<K, V> n, Comparator<K> comparator) returns Node<K,V>
+    let e2 = n.next
+    let e3 = e2.next
+
+    if n == null
+        return null
+    else if e2 == null
+        return n
+    else
+        return fmerge(fmerge(n, e2, comparator), fmergepairs(e3, comparator), comparator)
+
+function fdeleteMin<K, V>(PairingHeap<K, V> h, Comparator<K> comparator) returns V
+    let v = h.root.value
+    let c = h.root
+    h.root = fmergepairs(h.root.child, comparator)
+    if c != null
+        destroy c
+    return v
+
+
+@Test
+function testInsert()
+    new PairingHeap<real, real>((a, b) -> (a - b).toInt()).isEmpty().assertTrue()
+
+@Test
+function assertDeleteMinAndEmpty()
+    let h = new PairingHeap<int, int>((a, b) -> (a - b))
+    h..add(4, 1)
+    ..add(3, 2)
+    ..add(2, 3)
+    ..add(1, 4)
+
+    h.deleteMin().assertEquals(4)
+    h.deleteMin().assertEquals(3)
+    h.deleteMin().assertEquals(2)
+    h.deleteMin().assertEquals(1)
+    h.isEmpty().assertTrue()
+
+@Test
+function assertNotEmpty()
+    let h = new PairingHeap<int, int>(1, 2, (a, b) -> (a - b))
+    (not h.isEmpty()).assertTrue()
+
+@Test
+function assertModifyPrioHead()
+    let h = new PairingHeap<int, int>((a,b) -> (a-b))
+    let p1 = h.add(1,1)
+    h.add(2,2)
+    h.add(3,3)
+    h.add(4,4)
+    h.add(5,5)
+
+    h.modifyKey(p1, 7)
+    h.deleteMin().assertEquals(2)
+    h.deleteMin().assertEquals(3)
+    h.deleteMin().assertEquals(4)
+    h.deleteMin().assertEquals(5)
+    h.deleteMin().assertEquals(1)
+
+@Test
+function assertModifyPrioHeadAfterDelete()
+    let h = new PairingHeap<int, int>((a,b) -> (a-b))
+    h.add(1,1)
+    h.add(2,2)
+    let p3 = h.add(3,3)
+    h.add(4,4)
+    h.add(5,5)
+
+    h.deleteMin()
+    h.deleteMin()
+
+    h.modifyKey(p3, 7)
+    h.deleteMin().assertEquals(4)
+    h.deleteMin().assertEquals(5)
+    h.deleteMin().assertEquals(3)
+
+@Test
+function assertModifyPrioLastAfterDelete()
+    let h = new PairingHeap<int, int>((a,b) -> (a-b))
+    h.add(1,1)
+    h.add(2,2)
+    h.add(3,3)
+    h.add(4,4)
+    let p5 = h.add(5,5)
+
+    h.deleteMin()
+    h.deleteMin()
+
+    h.modifyKey(p5, 0)
+    h.deleteMin().assertEquals(5)
+    h.deleteMin().assertEquals(3)
+    h.deleteMin().assertEquals(4)

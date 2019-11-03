@@ -1,0 +1,44 @@
+package Test
+import Assets
+import ClosureEvents
+import AstarJPS
+import TerrainUtils
+import ClosureTimers
+
+var first = ZERO2
+
+
+function onMouse()
+    let mx = BlzGetTriggerPlayerMouseX()
+    let my = BlzGetTriggerPlayerMouseY()
+    let mpos = vec2(mx, my)
+    let eff = addEffect(Abilities.vengeanceMissile, mpos)
+    doAfter(5.) () ->
+        eff.destr()
+
+    if first == ZERO2
+        first = mpos
+    else
+        let finder = new Pathfinder(first, mpos)
+        finder.stepDelay = 0.1
+        finder.debug = true
+        finder.setCond() (test) ->
+            return test.isTerrainWalkable()
+
+        finder.search() (res) ->
+            Log.info("Path finding done. Found = " + res.success.toString())
+
+        first = ZERO2
+
+init
+    EventListener.add(EVENT_PLAYER_MOUSE_DOWN, () -> onMouse())
+    FogEnable(false)
+    FogMaskEnable(false)
+    doAfter(1.) ->
+        let des = createDestructable('KTtw', ZERO2.add(111, 222), 0 .fromDeg(), 1, 1)
+        CreateTrigger()..registerDeathEvent(des)
+        ..addAction() ->
+            print("widget: " + GetTriggerWidget().getPos().toString())
+
+        doAfter(1.) ->
+            des.kill()

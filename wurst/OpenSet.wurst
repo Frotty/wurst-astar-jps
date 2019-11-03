@@ -1,0 +1,37 @@
+package OpenSet
+import SearchNode
+import HashMap
+import PairingHeap
+
+/** Stores all nodes that should be considered for path finding. */
+public class OpenSet
+    let heap = new PairingHeap<real, SearchNode>((i1, i2) -> (i1 - i2).toInt())
+    let map = new HashMap<int, SearchNode>
+
+    function add(SearchNode node)
+        heap.add(node.f(), node)
+        map.put(node.hash(), node)
+
+    function is_empty() returns boolean
+        return heap.isEmpty()
+
+    function poll() returns SearchNode
+        var ret = heap.deleteMin()
+        if ret != null
+            while not map.has(ret.hash())
+                ret = heap.deleteMin()
+            map.remove(ret.hash())
+            return ret
+        return null
+
+    function remove(SearchNode node)
+        map.remove(node.hash())
+
+    function getNode(SearchNode node) returns SearchNode
+        if map.has(node.hash())
+            return map.get(node.hash())
+        return null
+
+    ondestroy
+        destroy map
+        destroy heap

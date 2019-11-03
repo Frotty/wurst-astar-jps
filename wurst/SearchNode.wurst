@@ -1,0 +1,81 @@
+package SearchNode
+import Assets
+import HashMap
+import Wc3Map
+
+let map = new HashMap<int, effect>
+
+public interface Hashable
+    function hash() returns int
+
+public class SearchNode implements Hashable
+    vec2 t
+    SearchNode parent
+    real h = 0.
+    real g = 0.
+    texttag tt
+
+    var prunedx = false
+    var prunedy = false
+    var prunedxp = false
+    var prunedyp = false
+    real scale = 0.6
+    var debug = false
+
+    boolean array[9] prunedDirs
+
+    construct(vec2 t, SearchNode parent, boolean debug)
+        this.t = t
+        this.parent = parent
+        this.debug = debug
+        for i = 0 to 8
+            prunedDirs[i] = false
+
+    ondestroy
+        if debug and map.has(hash())
+            map.getAndRemove(hash()).destr()
+        if tt != null
+            tt.destr()
+
+    function setOpen()
+        if debug
+            if not map.has(hash())
+                map.put(hash(), addEffect(Abilities.vengeanceMissile, t))
+                tt = createTTEx(t.toVec3(), f().toString(0), 5.)
+            map.get(hash()).setColor(0, 0, 255)
+
+    function setClosed()
+        if debug
+            map.get(hash()).setColor(255, 0, 0)
+        tt.destr()
+        tt = null
+
+    function setFinish()
+        if debug
+            map.get(hash()).setColor(0, 255, 0)
+
+    override function hash() returns int
+        return (t.x.toInt() * 64 + t.y.toInt())
+
+    function setH(real h)
+        this.h = h
+        tt.setText(f().toString(0), 5)
+
+    function setG(real g)
+        this.g = g
+        tt.setText(f().toString(0), 5)
+
+    function h() returns real
+        return h
+
+    function g() returns real
+        return g
+
+    function f() returns real
+        return h() + g()
+
+    function isPruned(int dx, int dy) returns boolean
+        return prunedDirs[((dx div 64) + 1) * 3 + ((dy div 64) + 1)]
+
+    function setPruned(int dx, int dy)
+        prunedDirs[((dx div 64) + 1) * 3 + ((dy div 64) + 1)] = true

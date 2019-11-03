@@ -1,0 +1,6 @@
+package MapFacade
+
+public interface MapFacade
+    function getWidth() returns int
+    function getHeight() returns int
+    function isPassable(vec2 vector) returns boolean

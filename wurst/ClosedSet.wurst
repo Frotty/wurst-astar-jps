@@ -1,0 +1,25 @@
+package ClosedSet
+import HashMap
+import SearchNode
+import HashSet
+
+/** Stores all nodes that have been fully processed. */
+public class ClosedSet
+    let map = new HashMap<int, SearchNode>
+    let list = new HashSet<int>
+
+    function has(SearchNode node) returns boolean
+        return node != null and map.has(node.hash())
+
+    function add(SearchNode node)
+        map.put(node.hash(), node)
+        list.add(node.hash())
+
+    ondestroy
+        for key in list
+            let node = map.get(key)
+            if node != null and node.typeId > 0
+                destroy node
+
+        destroy map
+        destroy list
