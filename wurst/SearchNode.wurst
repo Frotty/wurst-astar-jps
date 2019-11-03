@@ -1,7 +1,6 @@
 package SearchNode
 import Assets
 import HashMap
-import Wc3Map
 
 let map = new HashMap<int, effect>
 
