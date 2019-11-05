@@ -54,10 +54,22 @@ public class Pathfinder
     SearchNode lastJumpPoint = null
 
     construct(vec2 start, vec2 target)
-        this.start = vec2(start.x.toInt() div GRID_SIZE_I * GRID_SIZE + (GRID_SIZE / 2), start.y.toInt() div GRID_SIZE_I * GRID_SIZE + (GRID_SIZE / 2))
-        this.target = new GoalNode(vec2(target.x.toInt() div GRID_SIZE_I * GRID_SIZE + (GRID_SIZE / 2), target.y.toInt() div GRID_SIZE_I * GRID_SIZE+ (GRID_SIZE / 2)))
-        Log.info("start: " + this.start.toString())
-        Log.info("target: " + this.target.t.toString())
+        this.start = normalizePosition(start)
+        this.target = new GoalNode(normalizePosition(target))
+
+    function normalizePosition(vec2 pos) returns vec2
+        var result = ZERO2
+        result.x = (pos.x / GRID_SIZE).round() * GRID_SIZE
+        if pos.x < 0
+            result.x += GRID_SIZE / 2
+        else
+            result.x -= GRID_SIZE / 2
+        result.y = (pos.y / GRID_SIZE).round() * GRID_SIZE
+        if pos.y < 0
+            result.y += GRID_SIZE / 2
+        else
+            result.y -= GRID_SIZE / 2
+        return result
 
     function setCond(PathingCondition pred)
         this.cond = pred
@@ -87,6 +99,7 @@ public class Pathfinder
             else if inSubStep == 0
                 lastJumpPoint = openSet.poll()
 
+                lastJumpPoint.setActive()
                 if target.inGoal(lastJumpPoint)
                     lastJumpPoint.setFinish()
                     done = true
@@ -97,7 +110,6 @@ public class Pathfinder
                         for key in allNodes
                             let node = allNodes.get(key)
                             if node != null and not result.has(node)
-                                result.remove(node)
                                 destroy node
                     destroy cb
                     onFinish.call(astarResult(true, result))
@@ -125,46 +137,60 @@ public class Pathfinder
         return list
 
     private function identifySuccessors(SearchNode currentNode)
-        inSubStep = 8
+        let pathing_top = getNode(currentNode.t + vec2(0, GRID_SIZE), currentNode).t.isTerrainWalkable()
+        let pathing_bot = getNode(currentNode.t + vec2(0, -GRID_SIZE), currentNode).t.isTerrainWalkable()
+        let pathing_left = getNode(currentNode.t + vec2(-GRID_SIZE, 0), currentNode).t.isTerrainWalkable()
+        let pathing_right = getNode(currentNode.t + vec2(GRID_SIZE, 0), currentNode).t.isTerrainWalkable()
+
+        inSubStep = 4
         doAfter(1. * stepDelay) ->
             checkCandidate(currentNode, GRID_SIZE,  0.)
             inSubStep--
-        doAfter(2. * stepDelay) ->
+        doAfter(1. * stepDelay) ->
             checkCandidate(currentNode, -GRID_SIZE,  0.)
             inSubStep--
-        doAfter(3. * stepDelay) ->
+        doAfter(1. * stepDelay) ->
             checkCandidate(currentNode, 0.,  GRID_SIZE)
             inSubStep--
-        doAfter(4. * stepDelay) ->
+        doAfter(1. * stepDelay) ->
             checkCandidate(currentNode, 0.,  -GRID_SIZE)
             inSubStep--
-        doAfter(5. * stepDelay) ->
-            checkCandidate(currentNode, GRID_SIZE,  GRID_SIZE)
-            inSubStep--
-        doAfter(6. * stepDelay) ->
-            checkCandidate(currentNode, -GRID_SIZE,  GRID_SIZE)
-            inSubStep--
-        doAfter(7. * stepDelay) ->
-            checkCandidate(currentNode, GRID_SIZE,  -GRID_SIZE)
-            inSubStep--
-        doAfter(8. * stepDelay) ->
-            checkCandidate(currentNode, -GRID_SIZE,  -GRID_SIZE)
-            inSubStep--
 
+        if pathing_top or pathing_right
+            inSubStep++
+            doAfter((inSubStep - 3.) * stepDelay) ->
+                checkCandidate(currentNode, GRID_SIZE,  GRID_SIZE)
+                inSubStep--
 
-    SearchNode cccNode = null
+        if pathing_top or pathing_left
+            inSubStep++
+            doAfter((inSubStep - 3.) * stepDelay) ->
+                checkCandidate(currentNode, -GRID_SIZE,  GRID_SIZE)
+                inSubStep--
+
+        if pathing_bot or pathing_right
+            inSubStep++
+            doAfter((inSubStep - 3.) * stepDelay) ->
+                checkCandidate(currentNode, GRID_SIZE,  -GRID_SIZE)
+                inSubStep--
+
+        if pathing_bot or pathing_left
+            inSubStep++
+            doAfter((inSubStep - 3.) * stepDelay) ->
+                checkCandidate(currentNode, -GRID_SIZE,  -GRID_SIZE)
+                inSubStep--
+
 
     private function checkCandidate(SearchNode currentNode, real dx, real dy)
         let candidate = getNode(currentNode.t + vec2(dx,  dy), currentNode)
         if not closedSet.has(candidate) and candidate.t.isTerrainWalkable()
-            cccNode = currentNode
             let jumpNode = jump(currentNode, dx, dy, 0)
             if jumpNode != null and openSet.getNode(jumpNode) == null and not closedSet.has(jumpNode)
-                registerNode(jumpNode)
+                registerNode(jumpNode, lastJumpPoint)
 
-    function registerNode(SearchNode node)
-        node.parent = cccNode
-        calculateNodeScore(node)
+    function registerNode(SearchNode node, SearchNode parent)
+        node.parent = parent
+        calculateNodeScore(node, parent)
         openSet.add(node)
         node.setOpen()
 
@@ -177,37 +203,41 @@ public class Pathfinder
         if target.inGoal(nextNode)
             return nextNode
 
-        addEffect(Abilities.murgulMagicMissile, curNode.t).destr()
+        let eff = addEffect(Abilities.murgulMagicMissile, nextNode.t)
+        doAfter(1.) ->
+            eff.destr()
 
         // Diagonal
         if dx.toInt() != 0 and dy.toInt() != 0
             if (not cond.isPathable(vec2(nextNode.t.x - dx, nextNode.t.y)) and cond.isPathable(vec2(nextNode.t.x - dx, nextNode.t.y + dy))
                 or not cond.isPathable(vec2(nextNode.t.x, nextNode.t.y - dy)) and cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y - dy)))
-                Log.info("found diagonally forced left or below")
                 return nextNode
 
             let xjump = jump(nextNode, dx, 0, depth + 1)
             let yjump = jump(nextNode, 0, dy, depth + 1)
+
             if xjump != null
-                registerNode(xjump)
+                registerNode(xjump, nextNode)
 
             if yjump != null
-                registerNode(yjump)
+                registerNode(yjump, nextNode)
+
+            if xjump != null or yjump != null
+                return nextNode
+
         else
             // Vertical and horizontal
             if dx.toInt() != 0
                 if (cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y + GRID_SIZE)) and not cond.isPathable(vec2(nextNode.t.x, nextNode.t.y + GRID_SIZE))
                     or cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y - GRID_SIZE)) and not cond.isPathable(vec2(nextNode.t.x, nextNode.t.y - GRID_SIZE)))
-                    Log.info("found horizontal forced")
                     return nextNode
             else if dy.toInt() != 0
                 if (cond.isPathable(vec2(nextNode.t.x + GRID_SIZE, nextNode.t.y + dy)) and not cond.isPathable(vec2(nextNode.t.x + GRID_SIZE, nextNode.t.y))
                     or cond.isPathable(vec2(nextNode.t.x - GRID_SIZE, nextNode.t.y + dy)) and not cond.isPathable(vec2(nextNode.t.x - GRID_SIZE, nextNode.t.y)))
-                    Log.info("found vertical forced")
                     return nextNode
 
 
-        if cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y)) and cond.isPathable(vec2(nextNode.t.x, nextNode.t.y + dy))
+        if cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y)) or cond.isPathable(vec2(nextNode.t.x, nextNode.t.y + dy))
             nextNode.setPruned(dx.toInt(), dy.toInt())
             return jump(nextNode, dx, dy, depth + 1)
         else
@@ -215,12 +245,10 @@ public class Pathfinder
             return null
 
 
-    private function calculateNodeScore(SearchNode node)
+    private function calculateNodeScore(SearchNode node, SearchNode parent)
         let manhatten = (target.t.x - node.t.x).abs() + (target.t.y - node.t.y).abs()
 
         node.setH(manhatten)
-
-        let parent = lastJumpPoint
 
         node.setG(parent.g() + calculateGScore(node, parent))
 

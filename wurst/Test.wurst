@@ -20,13 +20,18 @@ function onMouse()
         first = mpos
     else
         let finder = new Pathfinder(first, mpos)
-        finder.stepDelay = 0.1
+        finder.stepDelay = 0.05
         finder.debug = true
+        finder.outputPath = true
         finder.setCond() (test) ->
             return test.isTerrainWalkable()
 
         finder.search() (res) ->
-            Log.info("Path finding done. Found = " + res.success.toString())
+            if res.success
+                Log.info("Path found. Nodes = " + res.nodes.size().toString())
+                for i = 0 to res.nodes.size() - 2
+                    addLightning(LIGHTNING_CHAIN_LIGHTNING_PRIMARY, false, res.nodes.get(i).t, res.nodes.get(i + 1).t)
+                    res.nodes.get(i)
 
         first = ZERO2
 
