@@ -46,6 +46,11 @@ public class PairingHeap<K, V>
         this.root = fmerge(this.root, other.root, comparator)
         destroy other
 
+    ondestroy
+        while not isEmpty()
+            deleteMin()
+
+
 class Node<K, V>
     K key
     V value

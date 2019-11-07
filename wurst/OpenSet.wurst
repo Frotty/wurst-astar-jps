@@ -8,21 +8,23 @@ public class OpenSet
     let heap = new PairingHeap<real, SearchNode>((i1, i2) -> (i1 - i2).toInt())
     let map = new HashMap<int, SearchNode>
 
-    function add(SearchNode node)
-        heap.add(node.f(), node)
-        map.put(node.hash(), node)
-
-    function is_empty() returns boolean
-        return heap.isEmpty()
-
+    /** Removes and returns the next node in the open set with the lowest G value */
     function poll() returns SearchNode
+        SearchNode result = null
         var ret = heap.deleteMin()
         if ret != null
             while not map.has(ret.hash())
                 ret = heap.deleteMin()
             map.remove(ret.hash())
-            return ret
-        return null
+            result = ret
+        return result
+
+    function add(SearchNode node)
+        heap.add(node.f(), node)
+        map.put(node.hash(), node)
+
+    function isEmpty() returns boolean
+        return heap.isEmpty()
 
     function remove(SearchNode node)
         map.remove(node.hash())

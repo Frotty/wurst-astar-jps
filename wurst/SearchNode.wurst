@@ -8,7 +8,7 @@ public interface Hashable
     function hash() returns int
 
 public class SearchNode implements Hashable
-    vec2 t
+    vec2 pos
     SearchNode parent
     real h = 0.
     real g = 0.
@@ -18,14 +18,10 @@ public class SearchNode implements Hashable
     real scale = 0.6
     var debug = false
 
-    boolean array[9] prunedDirs
-
-    construct(vec2 t, SearchNode parent, boolean debug)
-        this.t = t
+    construct(vec2 pos, SearchNode parent, boolean debug)
+        this.pos = pos
         this.parent = parent
         this.debug = debug
-        for i = 0 to 8
-            prunedDirs[i] = false
 
     ondestroy
         if debug and map.has(hash())
@@ -36,8 +32,8 @@ public class SearchNode implements Hashable
     function setOpen()
         if debug
             if not map.has(hash())
-                map.put(hash(), addEffect(Abilities.vengeanceMissile, t))
-                tt = createTTEx(t.toVec3(), f().toString(0), 5.)
+                map.put(hash(), addEffect(Abilities.vengeanceMissile, pos))
+                tt = createTTEx(pos.toVec3(), f().toString(0), 5.)
             map.get(hash()).setColor(0, 0, 255)
 
     function setClosed()
@@ -55,7 +51,7 @@ public class SearchNode implements Hashable
             map.get(hash()).setColor(55, 255, 55)
 
     override function hash() returns int
-        return (t.x.toInt() * 64 + t.y.toInt())
+        return (pos.x.toInt() * 64 + pos.y.toInt())
 
     function setH(real h)
         this.h = h
@@ -74,9 +70,8 @@ public class SearchNode implements Hashable
     function f() returns real
         return h() + g()
 
-    function isPruned(int dx, int dy) returns boolean
+    function isPruned() returns boolean
         return pruned
 
-    function setPruned(int dx, int dy)
+    function setPruned()
         pruned = true
-        // prunedDirs[((dx div 64) + 1) * 3 + ((dy div 64) + 1)] = true

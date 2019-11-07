@@ -1,7 +1,7 @@
 package AstarJPS
 import ClosureTimers
 import Execute
-import TerrainUtils
+import GameTimer
 import SearchNode
 import OpenSet
 import ClosedSet
@@ -11,21 +11,8 @@ import ErrorHandling
 import Abilities
 
 public constant GRID_SIZE = 64.
-public constant GRID_SIZE_I = GRID_SIZE.toInt()
 
-public class GoalNode implements Hashable
-    vec2 t
-
-    construct(vec2 t)
-        this.t = t
-
-    function inGoal(SearchNode other) returns boolean
-        return t.distanceTo(other.t) < GRID_SIZE * 2 + 1
-
-    override function hash() returns int
-        return (t.x * GRID_SIZE + t.y).toInt()
-
-public tuple astarResult(bool success, HashList<SearchNode> nodes)
+public tuple astarResult(bool success, HashList<SearchNode> path)
 
 public abstract class PathingCondition
     protected abstract function isPathable(vec2 test) returns bool
@@ -36,8 +23,20 @@ public abstract class OnPathFound
 function vec2.manhattan_to(vec2 rhs) returns real
     return (this.x - rhs.x).abs() + (this.y - rhs.y).abs()
 
+public class GoalNode implements Hashable
+    vec2 pos
+
+    construct(vec2 pos)
+        this.pos = pos
+
+    function inGoal(SearchNode other) returns boolean
+        return pos.distanceTo(other.pos) < GRID_SIZE
+
+    override function hash() returns int
+        return (pos.x * GRID_SIZE + pos.y).toInt()
+
 public class Pathfinder
-    private let allNodes = new IterableMap<real, SearchNode>
+    private let allNodes = new IterableMap<int, SearchNode>
     private var done = false
     private var inSubStep = 0
 
@@ -46,6 +45,7 @@ public class Pathfinder
     private PathingCondition cond = null
     private OpenSet openSet = null
     private ClosedSet closedSet = null
+    private var startTime = getElapsedGameTime()
 
     var outputPath = false
     var debug = false
@@ -75,6 +75,7 @@ public class Pathfinder
         this.cond = pred
 
     function search(OnPathFound onFinish)
+        startTime = getElapsedGameTime()
         if cond == null
             error("Pathing condition may not be null")
 
@@ -84,7 +85,7 @@ public class Pathfinder
         closedSet = new ClosedSet()
 
         doPeriodically(stepDelay) cb ->
-            if openSet.is_empty() and inSubStep == 0
+            if openSet.isEmpty() and inSubStep == 0
                 done = true
                 execute() ->
                     for key in allNodes
@@ -112,6 +113,7 @@ public class Pathfinder
                             if node != null and not result.has(node)
                                 destroy node
                     destroy cb
+                    Log.info("found path. took: " + (getElapsedGameTime() - startTime).toString() + " seconds")
                     onFinish.call(astarResult(true, result))
                     destroy this
                 else
@@ -121,7 +123,7 @@ public class Pathfinder
                     lastJumpPoint.setClosed()
 
     private function getNode(vec2 t, SearchNode parent) returns SearchNode
-        let hash = t.x * GRID_SIZE + t.y
+        let hash = (t.x / GRID_SIZE).round() + t.y.round()
         if not allNodes.has(hash)
             allNodes.put(hash, new SearchNode(t, parent, debug))
 
@@ -137,10 +139,10 @@ public class Pathfinder
         return list
 
     private function identifySuccessors(SearchNode currentNode)
-        let pathing_top = getNode(currentNode.t + vec2(0, GRID_SIZE), currentNode).t.isTerrainWalkable()
-        let pathing_bot = getNode(currentNode.t + vec2(0, -GRID_SIZE), currentNode).t.isTerrainWalkable()
-        let pathing_left = getNode(currentNode.t + vec2(-GRID_SIZE, 0), currentNode).t.isTerrainWalkable()
-        let pathing_right = getNode(currentNode.t + vec2(GRID_SIZE, 0), currentNode).t.isTerrainWalkable()
+        let pathing_top = cond.isPathable(currentNode.pos + vec2(0, GRID_SIZE))
+        let pathing_bot = cond.isPathable(currentNode.pos + vec2(0, -GRID_SIZE))
+        let pathing_left = cond.isPathable(currentNode.pos + vec2(-GRID_SIZE, 0))
+        let pathing_right = cond.isPathable(currentNode.pos + vec2(GRID_SIZE, 0))
 
         inSubStep = 4
         doAfter(1. * stepDelay) ->
@@ -182,78 +184,81 @@ public class Pathfinder
 
 
     private function checkCandidate(SearchNode currentNode, real dx, real dy)
-        let candidate = getNode(currentNode.t + vec2(dx,  dy), currentNode)
-        if not closedSet.has(candidate) and candidate.t.isTerrainWalkable()
+        let candidate = getNode(currentNode.pos + vec2(dx,  dy), currentNode)
+        if not closedSet.has(candidate) and cond.isPathable(candidate.pos)
             let jumpNode = jump(currentNode, dx, dy, 0)
-            if jumpNode != null and openSet.getNode(jumpNode) == null and not closedSet.has(jumpNode)
+            if jumpNode != null
                 registerNode(jumpNode, lastJumpPoint)
 
     function registerNode(SearchNode node, SearchNode parent)
-        node.parent = parent
-        calculateNodeScore(node, parent)
-        openSet.add(node)
-        node.setOpen()
+        if openSet.getNode(node) == null and not closedSet.has(node)
+            node.parent = parent
+            calculateNodeScore(node, parent)
+            openSet.add(node)
+            node.setOpen()
 
     /** JPS jump function
         Skips along in dx, dy direction until it finds a forced neighbour. */
     private function jump(SearchNode curNode, real dx, real dy, int depth) returns SearchNode
-        let nextNode = getNode(curNode.t + vec2(dx, dy), curNode)
-        if nextNode == null or nextNode.isPruned(dx.toInt(), dy.toInt()) or not cond.isPathable(nextNode.t)
+        let nextNode = getNode(curNode.pos + vec2(dx, dy), curNode)
+        if nextNode == null or nextNode.isPruned() or not cond.isPathable(nextNode.pos)
             return null
         if target.inGoal(nextNode)
             return nextNode
 
-        let eff = addEffect(Abilities.murgulMagicMissile, nextNode.t)
-        doAfter(1.) ->
-            eff.destr()
+        if debug
+            let eff = addEffect(Abilities.murgulMagicMissile, nextNode.pos)
+            nextNode.setPruned()
+            doAfter(1.) ->
+                eff.destr()
 
         // Diagonal
         if dx.toInt() != 0 and dy.toInt() != 0
-            if (not cond.isPathable(vec2(nextNode.t.x - dx, nextNode.t.y)) and cond.isPathable(vec2(nextNode.t.x - dx, nextNode.t.y + dy))
-                or not cond.isPathable(vec2(nextNode.t.x, nextNode.t.y - dy)) and cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y - dy)))
+            if (not cond.isPathable(vec2(nextNode.pos.x - dx, nextNode.pos.y)) and cond.isPathable(vec2(nextNode.pos.x - dx, nextNode.pos.y + dy))
+                or not cond.isPathable(vec2(nextNode.pos.x, nextNode.pos.y - dy)) and cond.isPathable(vec2(nextNode.pos.x + dx, nextNode.pos.y - dy)))
                 return nextNode
 
             let xjump = jump(nextNode, dx, 0, depth + 1)
             let yjump = jump(nextNode, 0, dy, depth + 1)
 
-            if xjump != null
-                registerNode(xjump, nextNode)
-
-            if yjump != null
-                registerNode(yjump, nextNode)
-
             if xjump != null or yjump != null
-                return nextNode
+                registerNode(nextNode, lastJumpPoint)
+
+                if xjump != null
+                    registerNode(xjump, nextNode)
+
+                if yjump != null
+                    registerNode(yjump, nextNode)
+
+                return null
 
         else
             // Vertical and horizontal
             if dx.toInt() != 0
-                if (cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y + GRID_SIZE)) and not cond.isPathable(vec2(nextNode.t.x, nextNode.t.y + GRID_SIZE))
-                    or cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y - GRID_SIZE)) and not cond.isPathable(vec2(nextNode.t.x, nextNode.t.y - GRID_SIZE)))
+                if (cond.isPathable(vec2(nextNode.pos.x + dx, nextNode.pos.y + GRID_SIZE)) and not cond.isPathable(vec2(nextNode.pos.x, nextNode.pos.y + GRID_SIZE))
+                    or cond.isPathable(vec2(nextNode.pos.x + dx, nextNode.pos.y - GRID_SIZE)) and not cond.isPathable(vec2(nextNode.pos.x, nextNode.pos.y - GRID_SIZE)))
                     return nextNode
             else if dy.toInt() != 0
-                if (cond.isPathable(vec2(nextNode.t.x + GRID_SIZE, nextNode.t.y + dy)) and not cond.isPathable(vec2(nextNode.t.x + GRID_SIZE, nextNode.t.y))
-                    or cond.isPathable(vec2(nextNode.t.x - GRID_SIZE, nextNode.t.y + dy)) and not cond.isPathable(vec2(nextNode.t.x - GRID_SIZE, nextNode.t.y)))
+                if (cond.isPathable(vec2(nextNode.pos.x + GRID_SIZE, nextNode.pos.y + dy)) and not cond.isPathable(vec2(nextNode.pos.x + GRID_SIZE, nextNode.pos.y))
+                    or cond.isPathable(vec2(nextNode.pos.x - GRID_SIZE, nextNode.pos.y + dy)) and not cond.isPathable(vec2(nextNode.pos.x - GRID_SIZE, nextNode.pos.y)))
                     return nextNode
 
 
-        if cond.isPathable(vec2(nextNode.t.x + dx, nextNode.t.y)) or cond.isPathable(vec2(nextNode.t.x, nextNode.t.y + dy))
-            nextNode.setPruned(dx.toInt(), dy.toInt())
+        if cond.isPathable(vec2(nextNode.pos.x + dx, nextNode.pos.y)) or cond.isPathable(vec2(nextNode.pos.x, nextNode.pos.y + dy))
             return jump(nextNode, dx, dy, depth + 1)
         else
-            nextNode.setPruned(dx.toInt(), dy.toInt())
             return null
 
 
     private function calculateNodeScore(SearchNode node, SearchNode parent)
-        let manhatten = (target.t.x - node.t.x).abs() + (target.t.y - node.t.y).abs()
+        let manhatten = (target.pos.x - node.pos.x).abs() + (target.pos.y - node.pos.y).abs()
 
         node.setH(manhatten)
 
         node.setG(parent.g() + calculateGScore(node, parent))
 
     private function calculateGScore(SearchNode newNode, SearchNode oldNode) returns int
-        let manhatten = (oldNode.t.x - newNode.t.x).abs() + (oldNode.t.y - newNode.t.y).abs()
+        let manhatten = (oldNode.pos.x - newNode.pos.x).abs() + (oldNode.pos.y - newNode.pos.y).abs()
         return manhatten.toInt()
 
     ondestroy
