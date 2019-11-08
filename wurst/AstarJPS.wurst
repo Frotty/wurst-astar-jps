@@ -52,6 +52,7 @@ public class Pathfinder
     var outputPath = false
     var debug = false
     var stepDelay = 0.1
+    var maxJumpDepth = 64
 
     SearchNode lastJumpPoint = null
 
@@ -207,6 +208,10 @@ public class Pathfinder
             return null
         if target.inGoal(nextNode)
             return nextNode
+
+        if depth > maxJumpDepth
+            registerNode(nextNode, lastJumpPoint)
+            return null
 
         if debug
             let eff = addEffect(Abilities.murgulMagicMissile, nextNode.pos)
