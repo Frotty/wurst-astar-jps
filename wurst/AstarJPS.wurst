@@ -20,8 +20,10 @@ public abstract class PathingCondition
 public abstract class OnPathFound
     protected abstract function call(astarResult res)
 
-function vec2.manhattan_to(vec2 rhs) returns real
-    return (this.x - rhs.x).abs() + (this.y - rhs.y).abs()
+function vec2.distanceHeuristic(vec2 rhs) returns real
+    let dx = (this.x - rhs.x).abs()
+    let dy = (this.y - rhs.y).abs()
+    return 1 * (dx + dy) + (1.41 - 2 * 1) * min(dx, dy)
 
 public class GoalNode implements Hashable
     vec2 pos
@@ -251,15 +253,15 @@ public class Pathfinder
 
 
     private function calculateNodeScore(SearchNode node, SearchNode parent)
-        let manhatten = (target.pos.x - node.pos.x).abs() + (target.pos.y - node.pos.y).abs()
+        let h = target.pos.distanceHeuristic(node.pos)
 
-        node.setH(manhatten)
+        node.setH(h)
 
         node.setG(parent.g() + calculateGScore(node, parent))
 
     private function calculateGScore(SearchNode newNode, SearchNode oldNode) returns int
-        let manhatten = (oldNode.pos.x - newNode.pos.x).abs() + (oldNode.pos.y - newNode.pos.y).abs()
-        return manhatten.toInt()
+        let dist = newNode.pos.distanceHeuristic(oldNode.pos)
+        return dist.toInt()
 
     ondestroy
         destroy allNodes
