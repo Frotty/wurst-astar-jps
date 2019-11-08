@@ -41,11 +41,3 @@ init
     EventListener.add(EVENT_PLAYER_MOUSE_DOWN, () -> onMouse())
     FogEnable(false)
     FogMaskEnable(false)
-    doAfter(1.) ->
-        let des = createDestructable('KTtw', ZERO2.add(111, 222), 0 .fromDeg(), 1, 1)
-        CreateTrigger()..registerDeathEvent(des)
-        ..addAction() ->
-            print("widget: " + GetTriggerWidget().getPos().toString())
-
-        doAfter(1.) ->
-            des.kill()
