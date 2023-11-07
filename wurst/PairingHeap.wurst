@@ -68,7 +68,8 @@ function fmodifyKey<K,V>(PairingHeap<K,V> h, Node<K,V> n, K k)
     if n != h.root
         _tmp = n.parent
         _tmp.child = fmergepairs(n.child, h.comparator)
-        _tmp.child.parent = _tmp
+        if _tmp.child != null
+            _tmp.child.parent = _tmp
 
         n.key = k
         n.parent = null
@@ -97,8 +98,8 @@ function fmerge<K, V>(Node<K, V> a, Node<K, V> b, Comparator<K> comparator) retu
         return a
 
 function fmergepairs<K, V>(Node<K, V> n, Comparator<K> comparator) returns Node<K,V>
-    let e2 = n.next
-    let e3 = e2.next
+    let e2 = n == null ? null : n.next
+    let e3 = e2 == null ? null : e2.next
 
     if n == null
         return null
@@ -108,10 +109,11 @@ function fmergepairs<K, V>(Node<K, V> n, Comparator<K> comparator) returns Node<
         return fmerge(fmerge(n, e2, comparator), fmergepairs(e3, comparator), comparator)
 
 function fdeleteMin<K, V>(PairingHeap<K, V> h, Comparator<K> comparator) returns V
-    let v = h.root.value
     let c = h.root
-    h.root = fmergepairs(h.root.child, comparator)
+    V v
     if c != null
+        h.root = fmergepairs(c.child, comparator)
+        v = c.value
         destroy c
     return v
 
