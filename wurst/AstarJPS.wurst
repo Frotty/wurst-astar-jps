@@ -75,7 +75,7 @@ public class Pathfinder
         return result
 
     function setCond(PathingCondition pred)
-        if cond
+        if cond != null
             destroy cond
         cond = pred
 
@@ -273,7 +273,7 @@ public class Pathfinder
         return dist.toInt()
 
     ondestroy
-        if cond
+        if cond != null
             destroy cond
 
         destroy allNodes
