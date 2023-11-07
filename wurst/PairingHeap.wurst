@@ -110,7 +110,7 @@ function fmergepairs<K, V>(Node<K, V> n, Comparator<K> comparator) returns Node<
 
 function fdeleteMin<K, V>(PairingHeap<K, V> h, Comparator<K> comparator) returns V
     let c = h.root
-    V v
+    V v = null
     if c != null
         h.root = fmergepairs(c.child, comparator)
         v = c.value
