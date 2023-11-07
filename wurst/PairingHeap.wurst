@@ -115,6 +115,8 @@ function fdeleteMin<K, V>(PairingHeap<K, V> h, Comparator<K> comparator) returns
         h.root = fmergepairs(c.child, comparator)
         v = c.value
         destroy c
+    else
+        h.root = null
     return v
 
 
