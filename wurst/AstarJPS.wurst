@@ -75,7 +75,9 @@ public class Pathfinder
         return result
 
     function setCond(PathingCondition pred)
-        this.cond = pred
+        if cond
+            destroy cond
+        cond = pred
 
     function search(OnPathFound onFinish)
         startTime = getElapsedGameTime()
@@ -83,7 +85,7 @@ public class Pathfinder
             error("Pathing condition may not be null")
 
         openSet = new OpenSet()
-        openSet.add(getNode(this.start, null)..setOpen())
+        openSet.add(getNode(start, null)..setOpen())
 
         closedSet = new ClosedSet()
 
@@ -99,6 +101,7 @@ public class Pathfinder
                 onFinish.call(astarResult(false, null))
                 destroy cb
                 destroy this
+                destroy onFinish
 
             else if inSubStep == 0
                 lastJumpPoint = openSet.poll()
@@ -119,6 +122,7 @@ public class Pathfinder
                     Log.info("found path. took: " + (getElapsedGameTime() - startTime).toString() + " seconds")
                     onFinish.call(astarResult(true, result))
                     destroy this
+                    destroy onFinish
                 else
                     identifySuccessors(lastJumpPoint)
 
@@ -269,6 +273,9 @@ public class Pathfinder
         return dist.toInt()
 
     ondestroy
+        if cond
+            destroy cond
+
         destroy allNodes
         destroy target
 
