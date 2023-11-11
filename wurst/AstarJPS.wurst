@@ -110,7 +110,7 @@ public class Pathfinder
                 if target.inGoal(lastJumpPoint)
                     lastJumpPoint.setFinish()
                     done = true
-                    var result = outputPath ? backtrace(lastJumpPoint) : new HashList<SearchNode>
+                    let result = outputPath ? backtrace(lastJumpPoint) : new HashList<SearchNode>
                     execute() ->
                         for key in allNodes
                             let node = allNodes.get(key)
