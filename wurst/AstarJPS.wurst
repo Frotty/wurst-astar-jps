@@ -75,15 +75,20 @@ public class Pathfinder
         return result
 
     function setCond(PathingCondition pred)
-        this.cond = pred
+        if cond != null
+            destroy cond
+        cond = pred
 
     function search(OnPathFound onFinish)
+        search(true, onFinish)
+
+    function search(boolean destroyOnFinish, OnPathFound onFinish)
         startTime = getElapsedGameTime()
         if cond == null
             error("Pathing condition may not be null")
 
         openSet = new OpenSet()
-        openSet.add(getNode(this.start, null)..setOpen())
+        openSet.add(getNode(start, null)..setOpen())
 
         closedSet = new ClosedSet()
 
@@ -99,6 +104,8 @@ public class Pathfinder
                 onFinish.call(astarResult(false, null))
                 destroy cb
                 destroy this
+                if destroyOnFinish
+                    destroy onFinish
 
             else if inSubStep == 0
                 lastJumpPoint = openSet.poll()
@@ -107,9 +114,7 @@ public class Pathfinder
                 if target.inGoal(lastJumpPoint)
                     lastJumpPoint.setFinish()
                     done = true
-                    var result = new HashList<SearchNode>
-                    if outputPath
-                        result = backtrace(lastJumpPoint)
+                    let result = outputPath ? backtrace(lastJumpPoint) : new HashList<SearchNode>
                     execute() ->
                         for key in allNodes
                             let node = allNodes.get(key)
@@ -119,6 +124,8 @@ public class Pathfinder
                     Log.info("found path. took: " + (getElapsedGameTime() - startTime).toString() + " seconds")
                     onFinish.call(astarResult(true, result))
                     destroy this
+                    if destroyOnFinish
+                        destroy onFinish
                 else
                     identifySuccessors(lastJumpPoint)
 
@@ -269,6 +276,9 @@ public class Pathfinder
         return dist.toInt()
 
     ondestroy
+        if cond != null
+            destroy cond
+
         destroy allNodes
         destroy target
 
